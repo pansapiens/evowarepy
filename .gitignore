@@ -52,3 +52,11 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+evoware/.idea/.name
+evoware/.idea/encodings.xml
+evoware/.idea/evoware.iml
+evoware/.idea/misc.xml
+evoware/.idea/modules.xml
+evoware/.idea/scopes/scope_settings.xml
+evoware/.idea/vcs.xml
+evoware/.idea/workspace.xml
