@@ -160,6 +160,9 @@ class Worklist(object):
         self.rows = 8
         self.columns = 12
         
+    def __str__(self):
+        return 'Worklist object writing to %s' % self.fname
+        
     def _get_file(self):
         if not self._f:
             try:
@@ -387,7 +390,6 @@ class Worklist(object):
                           wash=wash)
         return i
     
-    
     def multidiswithflush(self, srcLabel='', srcPos=1, dstLabel='', dstPos=[], volume=0, tipVolume=900, liquidClass='', tipMask=None, wash=True, flush=True):
         """
         @param wash - bool, replace tip *after* all multi-dispense actions.
@@ -428,8 +430,8 @@ class Worklist(object):
             
         if wash:
             self.wash()
-    
-    
+                 
+
     def wash(self):
         """generate 'W;' wash / tip replacement command"""
         self.f.write('W;\n')
