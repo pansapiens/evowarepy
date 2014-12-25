@@ -35,7 +35,8 @@ def askForFile(defaultextension='*.csv',
                           ('All files', '*.*')), 
                initialdir='', 
                initialfile='', 
-               multiple=False, 
+               multiple=False,
+               newfile=False,
                title=None):
     """present simple Open File Dialog to user and return selected file."""
     options = dict(defaultextension=defaultextension, 
@@ -45,8 +46,14 @@ def askForFile(defaultextension='*.csv',
                multiple=multiple, 
                title=title)
     
-    r = tkFileDialog.askopenfilename(**options)
+    if not newfile:
+        r = tkFileDialog.askopenfilename(**options)
+    else:
+        del options['multiple']
+        r = tkFileDialog.asksaveasfilename(**options)
     return r
+
+
 
 def info(title, message):
     """Display info dialog box to user"""
@@ -60,10 +67,10 @@ def error(title, message):
     """Display error dialog box to user"""
     tkMessageBox.showerror(title, message)
 
-def lastException():
+def lastException(title=None):
     """Report last exception in a dialog box."""
     msg = __lastError()
-    tkMessageBox.showerror(title='Python Exception', message=msg)
+    tkMessageBox.showerror(title= title or 'Python Exception', message=msg)
 
 def __lastError():
     """
@@ -104,8 +111,9 @@ class Test(testing.AutoTest):
     
     def test_askForFile( self ):
         """fileutil.askForFile test"""
-        r = askForFile(title='Test File')
-        self.assertNotEqual(r, 'test.dat')
+        if self.local:
+            r = askForFile(title='Test File')
+            self.assertNotEqual(r, 'test.dat')
     
     def test_info(self):
         info('testInfo', 'This is a test.')

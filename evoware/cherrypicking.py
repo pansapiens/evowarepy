@@ -17,10 +17,11 @@
 
 import copy, collections
 
-import xlrd as X  ## dependency
-
 import fileutil as F
 import worklist as W
+import plates
+
+import xlrd as X  ## dependency
 
 class IndexFileError( Exception ):
     pass
@@ -67,11 +68,23 @@ class BaseIndex(object):
     This base implementation assumes that every ID+sub-ID is assigned to
     exactly one plate and position.
     
-    Additionally, the parser recognizes the keyword 'param' in the first
-    column of any row *before* the table header and interprets the next two
-    columns as a parameter : value pair which is put into self._params.
-    For example, the table row:
-    param    volume    130    ul
+    Additionally, the parser recognizes two different keywords in the first
+    column of any row *before* the table header -- 'plate' and 'param':
+    
+    * plate  plate_ID  384   -- will assign 'plate_ID' to a 384 well format
+    * plate  XY02      6     -- will assign plate 'XY02' to a 6 well format
+    These values are stored in the BaseIndex._plates dictionary which is mapping
+    plate IDs to plates.PlateFormat instances:
+    >>> parser._plates['plate_ID'] = plates.PlateFormat(384)
+    >>> parser._plates['XY02'] = plates.PlateFormat(6)
+    
+    Default for all plates is PlateFormat(96). This default value can be
+    overridden in the constructor.
+
+    The 'param' keyword signals generic key - value pairs that are put into
+    ._params:
+
+    * param    volume    130    ul
     ... is converted into 
     >>> parser._params['volume'] = 130
     """
@@ -81,11 +94,21 @@ class BaseIndex(object):
 
     _header0 = HEADER_FIRST_VALUE.lower()
 
-    def __init__(self):
+    def __init__(self, plateformat=plates.PlateFormat(96),
+                 relaxedId=True):
+        """
+        @param plateformat: plates.PlateFormat, default microplate format
+        @param relaxedId: bool, fall back to matching by main ID only if sub-ID 
+                          is not given, for example:
+                              parts['Bba001'] may return parts['Bba001#a']
+        """
         self._params = {}
         self._index = {}
+        self._plates = {'default':plateformat}
+        
+        self.relaxedId = relaxedId
 
-    def parseParam(self, values):
+    def parseParam(self, values, keyword='param'):
         """
         Extract "param, key, value" parameter from one row of values 
         (collected before the actual table header).
@@ -94,7 +117,7 @@ class BaseIndex(object):
         if values:
             v0 = values[0]
     
-            if v0 and type(v0) in (str,unicode) and v0.lower() == 'param':
+            if v0 and type(v0) in (str,unicode) and v0.lower() == keyword:
                 try:
                     key = unicode(values[1]).strip()
                     value = self.intfloat2int(values[2])
@@ -104,7 +127,18 @@ class BaseIndex(object):
                     raise IndexFileError, 'cannot parse parameter: %r' % values
 
         return {}
+    
+    def parsePlateformat(self, values):
+        r = self.parseParam(values, keyword='format')
+        if not r:
+            return r
         
+        plate = r.keys()[0]
+        r[plate] = plates.PlateFormat(r[plate])
+        
+        return r
+        
+
     def intfloat2int(self,x):
         """convert floats like 1.0, 100.0, etc. to int where applicable"""
         if type(x) is float:
@@ -127,6 +161,12 @@ class BaseIndex(object):
         for key, value in d.items():
             d[key] = self.clean2str(value)
 
+    def parsePreHeader(self, values):
+        r = self.parseParam(values)
+        self._params.update(r)
+        
+        r = self.parsePlateformat(values)
+        self._plates.update(r)
 
     def parseHeader(self, values):
         """
@@ -160,6 +200,7 @@ class BaseIndex(object):
             return True
         return False
     
+
     def readExcel(self, fname):
         """
         @param fname: str, excel file name including path
@@ -176,8 +217,7 @@ class BaseIndex(object):
             ## capture any "param, <key>, <value>" entries until then
             while not self.detectHeader(values):
                 values = [ v for v in sheet.row_values(row) if v ] 
-                r = self.parseParam(values)
-                self._params.update(r)
+                self.parsePreHeader(values)
                 row += 1
             
             ## parse table "header"
@@ -213,8 +253,15 @@ class BaseIndex(object):
         PartIndex[partID] -> [ {'plate':str, 'pos':str, 'barcode':str } ]
         @raise KeyError, if given ID doesn't match any registered part
         """
-        id = self.convertId(item)
-        return self._index[id]
+        try:
+            id = self.convertId(item)
+            return self._index[id]
+        except KeyError:
+            if self.relaxedId:
+                for key, value in self._index.items():
+                    if key.split('#')[0] == id:
+                        return value
+                raise
     
     def __len__(self):
         """len(PickList) -> int, number of samples to pick"""
@@ -244,6 +291,9 @@ class BaseIndex(object):
 
         r = self[id]
         return r['plate'], r['pos']
+    
+    def plateFormat(self, plate=''):
+        return self._plates.get(plate, self._plates['default'])
 
 
 class PartIndex(BaseIndex):
@@ -346,17 +396,25 @@ class TargetIndex(BaseIndex):
     * one or more "source" columns holding IDs of source constructs that
       should be pipetted into target. Default column title is "source", can
       be adapted in __init__
+      
+    Assumes volume definition for each source before the table header:
+        volume    <source column>  <volume>
+    Example:
+        volume    template    5
+    Declares that 5 ul should be transferred from sources given in column 
+    "template".
     """
 
-    def __init__(self, sourceColumns=['source'] ):
+    def __init__(self, srccolumns=['source'], volume=None ):
         """
         
-        @param sources: [str] | [(str,str),str], list of column headers
+        @param srccolumns: [str] | [(str,str),str], list of column headers
         """
         super(TargetIndex, self).__init__()  
         self._index = collections.OrderedDict()  ## replace unordered dict
         
-        self.source_cols = self._clean_headers(sourceColumns)
+        self.source_cols = self._clean_headers(srccolumns)
+        self._volume = {'default':volume}
 
     def _clean_headers(self, values):
         r = []
@@ -367,12 +425,111 @@ class TargetIndex(BaseIndex):
                 r += [ unicode(v).lower().strip() ]
         return r
     
+    def parsePreHeader(self, values):
+        super(TargetIndex,self).parsePreHeader(values)
+        
+        r = self.parseParam(values, keyword='volume')
+        if r and not r.keys()[0] in self.source_cols + ['default']:
+            raise IndexFileError, \
+                  'volume definition "%s" does not match any source column' %\
+                  r.keys()[0]
+
+        self._volume.update(r)
     
+    def volume(self, srcol, default=None):
+        """
+        @param srcol - str, source column name
+        @param default - int | float, default volume if none registered for
+                         given column AND if there is no default volume for
+                         the table.
+        @return int | float | None, volume registered for given source column
+        """
+        return self._volume.get(srcol, self._volume['default']) or default
+    
+   
+class CherryWorklist(object):
+    """
+    Usage:
+    >>> targets = TargetIndex()
+    >>> targets.readExcel('pcr_reactions.xls')
+    >>>
+    >>> parts = PartIndex()
+    >>> parts.readExcel('templates.xls')
+    >>> parts.readExcel('primers.xls')
+    >>>
+    >>> cwl = CherryWorklist('worklist.gwl', targets, parts)
+    >>> cwl.toWorklist(volume=5, byLabel=True)
+    >>> cwl.close()
+    
+    This will read in three Excel files -- one containing a definition of
+    new reactions / wells to create or cherry pick to, the other two containing
+    the location of all the templates and primers references in the first one.
+    
+    cwl.toWorklist() will populate the worklist text file with aspirate/dispense
+    statements that transfer liquid from source wells to target wells. The plate
+    IDs used in the input tables can either be interpreted as barcodes/IDs 
+    (byLabel=False which is the default) or they will be interpreted as 
+    labware labels (byLabel=True).
+    
+    The volume to be transferred can be specified for each source column within
+    the target Excel table (see TargetIndex).
+    """
+    
+    def __init__(self, fout, targetIndex, sourceIndex, reportErrors=False):
+        self.iTargets = targetIndex
+        self.iParts = sourceIndex
+        self.iProcessed = TargetIndex()
+        self.wl = W.Worklist(fout, reportErrors=reportErrors)
+        
+    def close(self):
+        """close the internal worklist file handle"""
+        self.wl.close()
+    
+    def toWorklist(self, srccolumns=[], volume=None, byLabel=False):
+        """
+        @param srccolumns - [str], source columns to be processed [all]
+        @param volume - int, transfer volume if none is specified in table [None]
+        @param byLabel - bool, use labware labels as IDs rather than 
+                         ID/barcode [False]
+        """
+        srccolumns = [s.strip() for s in srccolumns] or self.iTargets.source_cols
+        
+        for col in srccolumns:
+            V = self.iTargets.volume(col, volume)
+            
+            self.wl.comment('Processing source column %s' % col)
+            
+            for target, d in self.iTargets.items():
+                
+                try:
+                    dst_plate, dst_pos = self.iTargets.position(target)
+                    
+                    if type(col) in [tuple,list]:
+                        src_id = [d[s] for s in col]
+                    src_id = d[col]
+                    
+                    if src_id:
+                        
+                        src_plate, src_pos = self.iParts.position(src_id)
+                        
+                        dst_format = self.iTargets.plateFormat(dst_plate)
+                        src_format = self.iParts.plateFormat(src_plate)
+                        
+                        dst_pos = dst_format.pos2int(dst_pos)
+                        src_pos = src_format.pos2int(src_pos)
+                        
+                        self.wl.transfer(src_plate, src_pos, dst_plate, dst_pos, 
+                                         V, byLabel=byLabel)
+                except plates.PlateError, why:
+                    raise IndexFileError, \
+                          'Error processing target record "%s":\n%s' \
+                          % (target, why) 
+        
     
     
 ######################
 ### Module testing ###
-import testing
+import testing, tempfile
 
 class Test(testing.AutoTest):
     """Test PlateFormat"""
@@ -380,11 +537,23 @@ class Test(testing.AutoTest):
     TAGS = [ testing.NORMAL ]
 
     def prepare(self):
-        fname = F.testRoot('partslist.xls')
-        self.p = PartIndex()
-        self.p.readExcel(fname)
+        """Called once"""
+        self.f_parts = F.testRoot('partslist.xls')
+        self.f_primers = F.testRoot('primers.xls')
+        self.f_simple = F.testRoot('targetlist.xls')
+        self.f_pcr = F.testRoot('targetlist_PCR.xls')
+    
+        self.f_worklist = tempfile.mktemp(suffix=".gwl", prefix="test_cherrypicking_")
+    
+    def cleanUp(self):
+        """Called after all tests"""
+        if not self.DEBUG:
+            F.tryRemove(self.f_worklist)
         
     def test_partIndex(self):
+        self.p = PartIndex()
+        self.p.readExcel(self.f_parts)
+
         self.assertEqual(self.p['sb0101',2], self.p['sb0101#2'])
         self.assertEqual(len(self.p['sb0111']), 2)
         
@@ -395,25 +564,35 @@ class Test(testing.AutoTest):
         self.assertEqual(self.p.position('sb0102#2', plate='SB10'), 
                          self.p.position('sb0102', '2'))
         
+        self.assertEqual(self.p._plates['SB11'], plates.PlateFormat(384))
 
     def test_targetIndex_simple(self):
-        fname = F.testRoot('targetlist.xls')
-        t = TargetIndex(sourceColumns=[('construct','clone')])
-        t.readExcel(fname)
+        t = TargetIndex(srccolumns=[('construct','clone')])
+        t.readExcel(self.f_simple)
     
     def test_targetIndex_multiple(self):
-        fname = F.testRoot('targetlist_PCR.xls')
-        t = TargetIndex(sourceColumns=['template','primer1','primer2'])
-        t.readExcel(fname)
+        t = TargetIndex(srccolumns=['template','primer1','primer2'])
+        t.readExcel(self.f_pcr)
+        
+        self.assertTrue(t._volume['template'] == 2)
+        self.assertEqual(t._volume['primer1'], 5)
+        self.assertEqual(t._volume['primer2'], 5)
+    
+    def test_generate_worklist(self):
+        parts = PartIndex()
+        parts.readExcel(self.f_parts)
+        parts.readExcel(self.f_primers)
+        
+        t = TargetIndex(srccolumns=['template','primer1','primer2'])
+        t.readExcel(self.f_pcr)
+        
+        cwl = CherryWorklist(self.f_worklist, t, parts)
+        
+        cwl.toWorklist(byLabel=True, volume=10)
+        
+        cwl.close()
 
-
-fname = F.testRoot('partslist.xls')
-self = PartIndex()
-self.readExcel(fname)
-
-fname = F.testRoot('targetlist.xls')
-t = TargetIndex(sourceColumns=[('construct','clone')])
-t.readExcel(fname)
-
-print "Done"
+if __name__ == '__main__':
+    
+    testing.localTest()
 
