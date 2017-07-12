@@ -13,10 +13,13 @@
 ##   See the License for the specific language governing permissions and
 ##   limitations under the License.
 
-import fileutil as F
 import os.path as osp
 import os
-import logging, logging.handlers
+import logging
+import logging.handlers
+
+from . import fileutil as F
+
 
 class EvoTask(object):
     """
@@ -49,12 +52,12 @@ class EvoTask(object):
     use the already existing sub-folder. It will create a new log file task.log
     within this sub-folder (rotating away previous logs)
     """
-    
+
     #: default task-specific sub-folder name for input and output. Override!
     F_SUBFOLDER = 'evotask'
     #: default task-specific log file name
     F_LOG = 'task.log'
-    
+
     def __init__(self, projectfolder='.', taskfolder=None, logfile=None,
                  loglevel=logging.INFO):
         """
@@ -65,31 +68,30 @@ class EvoTask(object):
                          log in task folder unless a full path is given [F_LOG]
         """
         logging.info('Initiating new task: %s in %s', self.__class__.__name__,
-                      projectfolder)
-        
+                     projectfolder)
+
         self.f_project = F.absfile(projectfolder)
         if not osp.isdir(self.f_project):
             logging.error('Project folder %s not found.' % self.f_project)
-            raise IOError, 'Project folder %s not found.' % self.f_project
-        
+            raise IOError('Project folder %s not found.' % self.f_project)
+
         self.f_task = self.prepareFolder()
-        
+
         logfile = logfile or self.F_LOG
         if not osp.isabs(logfile):
             logfile = osp.join(self.f_task, logfile)
-        
+
         self.log = logging.getLogger('evo.' + self.__class__.__name__)
         self.log.setLevel(loglevel)
 
-        hdlr = logging.handlers.RotatingFileHandler(logfile,backupCount=5)
+        hdlr = logging.handlers.RotatingFileHandler(logfile, backupCount=5)
         self.log.addHandler(hdlr)
         self.log.propagate = False  ## don't copy to root log
-        
-        self.log.info('Task %s initiated in %s' % (self.__class__.__name__ , 
-                                              self.f_task) )
 
-    
-    def prepareFolder( self, taskfolder=None ):
+        self.log.info('Task %s initiated in %s' % (self.__class__.__name__,
+                                                   self.f_task))
+
+    def prepareFolder(self, taskfolder=None):
         """
         Create needed output folders if not there.
         @return str, full path to (if needed created) existing folder for task
@@ -99,50 +101,17 @@ class EvoTask(object):
         ## given task folder is full path and exists as directory
         if osp.isdir(taskfolder):
             return taskfolder
-        
+
         r = osp.join(self.f_project, taskfolder)
         logging.info('Task folder is set to ' + r)
-        
+
         if not osp.isdir(r):
             logging.info('Creating new folder ' + r)
             os.mkdir(r)
-        
+
         if not osp.isdir(r):
             msg = 'Could not create task folder %r.' % r
             logging.error(msg)
-            raise IOError, msg
-        
+            raise IOError(msg)
+
         return r
-
-
-######################
-### Module testing ###
-import testing, tempfile
-
-class Test(testing.AutoTest):
-    """Test Worklist"""
-
-    TAGS = [ testing.NORMAL ]
-    DEBUG = False
-
-    def prepare( self ):
-        self.f_project = tempfile.mkdtemp(prefix='test_evotask_')
-        self.loglevel = logging.WARNING
-        if self.local:
-            self.loglevel = logging.INFO
-        
-        logging.basicConfig(level=self.loglevel)
-    
-    def cleanUp(self):
-        if not self.DEBUG:
-            F.tryRemove(self.f_project, tree=True)
-    
-    def test_evotask_default(self):
-        t = EvoTask(projectfolder=self.f_project)
-        
-        self.assert_(osp.exists(t.f_task), 'no task folder')
-        self.assert_(osp.exists(osp.join(t.f_task, t.F_LOG)), 'no log file')
-
-if __name__ == '__main__':
-    
-    testing.localTest(debug=False)

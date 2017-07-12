@@ -21,13 +21,14 @@ import shutil, glob, sys
 
 import logging
 
-import util
+from . import util
 
-class UtilError( Exception ):
+
+class UtilError(Exception):
     pass
 
 
-def absfile( filename, resolveLinks=1 ):
+def absfile(filename, resolveLinks=1):
     """
     Get absolute file path::
       - expand ~ to user home, change
@@ -47,13 +48,13 @@ def absfile( filename, resolveLinks=1 ):
     """
     if not filename:
         return filename
-    r = osp.abspath( osp.expanduser( filename ) )
+    r = osp.abspath(osp.expanduser(filename))
 
     if '~' in r:
-        raise UtilError, 'Could not expand user home in %s' % filename
+        raise UtilError('Could not expand user home in %s' % filename)
 
     if resolveLinks:
-        r = osp.realpath( r )
+        r = osp.realpath(r)
     r = osp.normpath(r)
     return r
 
@@ -71,11 +72,11 @@ def projectRoot():
     ## get location of this module
     f = absfile(fileutil.__file__)
     ## extract path and assume it is 'project_root/synbio'
-    f = osp.join( osp.split( f )[0], '..' )
-    return absfile( f )
+    f = osp.join(osp.split(f)[0], '..')
+    return absfile(f)
 
 
-def testRoot( subfolder='' ):
+def testRoot(subfolder=''):
     """
     Root folder of synbio testdata.
     This method assumes that the python module is located within
@@ -83,10 +84,10 @@ def testRoot( subfolder='' ):
     @param subfolder: str; sub-folder within testroot
     @return: str; folder containing testdata
     """
-    return absfile( osp.join( projectRoot(), 'evoware', 'testdata', subfolder ) )
+    return absfile(osp.join(projectRoot(), 'evoware', 'testdata', subfolder))
 
 
-def stripFilename( filename ):
+def stripFilename(filename):
     """
     Return filename without path and without ending.
 
@@ -96,16 +97,17 @@ def stripFilename( filename ):
     @return: base filename
     @rtype: str
     """
-    name = osp.basename( filename )      # remove path
+    name = osp.basename(filename)  # remove path
     try:
-        if name.find('.') <> -1:
-            name = name[: name.rfind('.') ]     # remove ending
+        if name.find('.') != -1:
+            name = name[: name.rfind('.')]  # remove ending
     except:
         pass  ## just in case there is no ending to start with...
 
     return name
 
-def tryRemove(f, verbose=0, tree=0, wildcard=0 ):
+
+def tryRemove(f, verbose=0, tree=0, wildcard=0):
     """
     Remove file or folder::
      remove(f [,verbose=0, tree=0]), remove if possible, otherwise do nothing
@@ -123,25 +125,26 @@ def tryRemove(f, verbose=0, tree=0, wildcard=0 ):
     @rtype: 1|0
     """
     try:
-        f = absfile( f )
+        f = absfile(f)
         if osp.isdir(f):
             if tree:
-                shutil.rmtree( f, ignore_errors=1 )
+                shutil.rmtree(f, ignore_errors=1)
             else:
                 logging.error('%r is directory - not removed.' % f)
                 return False
         else:
             if wildcard:
-                l = glob.glob( f )
+                l = glob.glob(f)
                 for i in l:
-                    os.remove( i )
+                    os.remove(i)
             else:
-                os.remove( f )
+                os.remove(f)
         return True
-    except Exception, why:
-        if verbose: logging.warning( 'Cannot remove %r:\n%s' % (f, 
-                                                    util.lastError()) )
+    except Exception as why:
+        if verbose:
+            logging.warning('Cannot remove %r:\n%s' % (f, util.lastError()))
         return False
+
 
 ## quick and dirty command line argument parsing... could be made more elegant
 def get_cmdDict(lst_cmd, dic_default):
@@ -166,52 +169,52 @@ def get_cmdDict(lst_cmd, dic_default):
              ala {'pdb':['in1.pdb', 'in2.pdb'], 'psf':'in.psf', 'o':'out.dat'}
     @rtype: {<option> : <value>}
     """
-    dic_cmd = {}                     # create return dictionary
+    dic_cmd = {}  # create return dictionary
     try:
 
         for cmd in lst_cmd:
-            if (cmd[0] == '-'):               # this entry is new option
-                current_option = cmd[1:]      # take all but leading "-"
+            if (cmd[0] == '-'):  # this entry is new option
+                current_option = cmd[1:]  # take all but leading "-"
                 dic_cmd[current_option] = ""  # make sure key exists even
-                                              # w/o value
-                counter = 0        # number of values for this option
-            else:                  # this entry is value for latest option
+                # w/o value
+                counter = 0  # number of values for this option
+            else:  # this entry is value for latest option
 
                 if counter < 1:
                     dic_cmd[current_option] = cmd
 
-    # in case, several values follow after a "-xxx" option convert dictionary
-    # entry into list and add all elements (until the next "-") to this list
+                    # in case, several values follow after a "-xxx" option convert dictionary
+                    # entry into list and add all elements (until the next "-") to this list
                 else:
-                    if counter == 1:   # there is already a value assigned
-    # convert to list
+                    if counter == 1:  # there is already a value assigned
+                        # convert to list
                         dic_cmd[current_option] = [dic_cmd[current_option]]
-    # add value to list
+                        # add value to list
                     dic_cmd[current_option] = dic_cmd[current_option] + [cmd]
 
                 counter = counter + 1
 
-    except (KeyError, UnboundLocalError), why:
-        raise UtilError, "Can't resolve command line options.\n \tError:"+\
-                  str(why)
+    except (KeyError, UnboundLocalError) as why:
+        raise UtilError(
+            "Can't resolve command line options.\n \tError: %s" % why)
 
     ## get extra options from external file
     try:
         if dic_cmd.has_key('x'):
-            d = file2dic( dic_cmd['x'] )
-            d.update( dic_cmd )
+            d = file2dic(dic_cmd['x'])
+            d.update(dic_cmd)
             dic_cmd = d
     except IOError:
-        raise IOError, "Error opening %s."% dic_cmd['x']
+        raise IOError("Error opening %s." % dic_cmd['x'])
 
     ## fill in missing default values
-    dic_default.update( dic_cmd )
+    dic_default.update(dic_cmd)
     dic_cmd = dic_default
 
     return dic_cmd
 
 
-def cmdDict( defaultDic={} ):
+def cmdDict(defaultDic={}):
     """
     Convenience implementation of L{get_cmdDict}. Take command line options
     from sys.argv[1:] and convert them into dictionary.
@@ -227,34 +230,4 @@ def cmdDict( defaultDic={} ):
     @return: command dictionary
     @rtype: dic
     """
-    return get_cmdDict( sys.argv[1:], defaultDic )
-
-
-######################
-### Module testing ###
-import testing
-
-class Test(testing.AutoTest):
-    """Test MyModule"""
-
-    TAGS = [ testing.NORMAL ]
-
-    def prepare( self ):
-        self.fname1 = '~/nonexistent/../subfolder/file.txt'
-
-    def test_stripFilename( self ):
-        """fileutil.stripFilename test"""
-        r = stripFilename( self.fname1 )
-        self.assertEqual( r, 'file', '%r != %r' % (r, 'file') )
-
-    def test_absfilename( self ):
-        """fileutil.absfilename test"""
-        r = absfile( self.fname1 )
-        self.assertEqual( r,
-                          osp.join( osp.expanduser('~'), 'subfolder/file.txt'))
-        
-
-if __name__ == '__main__':
-
-    testing.localTest()
-
+    return get_cmdDict(sys.argv[1:], defaultDic)

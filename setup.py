@@ -11,6 +11,7 @@
 
 ## For custom installation folder use: --home=/where/i/want
 
+from os import path
 from setuptools import setup, find_packages
 import os
 import sys
@@ -26,34 +27,51 @@ import evoware
 EXCLUDE_FROM_PACKAGES = []
 
 long_description = \
- """evoware//py is a Python package supporting the development of Tecan
-Evoware scripts for robotic liquid handling.
-"""
+    """evoware//py is a Python package supporting the development of Tecan
+   Evoware scripts for robotic liquid handling.
+   """
+
+here = path.abspath(path.dirname(__file__))
+
+
+def get_requirements():
+    from pip.req import parse_requirements
+    from pip.download import PipSession
+
+    # parse_requirements() returns generator of pip.req.InstallRequirement
+    # objects
+    pip_reqs = parse_requirements(path.join(here, 'requirements.txt'),
+                                  session=PipSession())
+    # reqs is a list of requirements
+    requirements = [str(ir.req) for ir in pip_reqs]
+
+    return requirements
+
 
 setup(
-    name = "evowarepy",
-    version = evoware.__version__,
-    url = 'https://github.com/graik/evowarepy',
-    download_url= '',
-    author = 'Raik Gruenberg',
-    author_email = 'raik.gruenberg@crg.es',
-    description = 'simplify the creation of Tecan Evoware scripts',
-    long_description = long_description,
+    name="evowarepy",
+    version=evoware.__version__,
+    url='https://github.com/graik/evowarepy',
+    download_url='',
+    author='Raik Gruenberg',
+    author_email='raik.gruenberg@crg.es',
+    description='simplify the creation of Tecan Evoware scripts',
+    long_description=long_description,
     provides=['evoware'],
 
     ## available on PyPi
-    install_requires=['xlrd'],
+    install_requires=get_requirements(),
     packages=find_packages(exclude=EXCLUDE_FROM_PACKAGES),
     include_package_data=True,
-    scripts = ['evoware/scripts/pcrsetup.py'],
-
-    classifiers= ['License :: OSI Approved :: Apache Software License',
-                  'Topic :: Scientific/Engineering',
-                  'Programming Language :: Python',
-                  'Operating System :: OS Independent',
-                  'Operating System :: POSIX',
-                  'Operating System :: MacOS :: MacOS X',
-                  'Intended Audience :: Science/Research',
-                  'Development Status :: 4 - Beta'
-                  ]
+    scripts=['evoware/scripts/pcrsetup.py'],
+    test_suite='evoware.tests',
+    classifiers=['License :: OSI Approved :: Apache Software License',
+                 'Topic :: Scientific/Engineering',
+                 'Programming Language :: Python',
+                 'Operating System :: OS Independent',
+                 'Operating System :: POSIX',
+                 'Operating System :: MacOS :: MacOS X',
+                 'Intended Audience :: Science/Research',
+                 'Development Status :: 4 - Beta'
+                 ]
 )

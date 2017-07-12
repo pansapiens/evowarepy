@@ -15,14 +15,17 @@
 
 """TK / Windows user-notifications and dialog boxes"""
 
-import Tkinter, tkFileDialog, tkMessageBox
+import tkinter
+from tkinter import filedialog
+from tkinter import messagebox
 import sys, traceback, inspect
 import os
+import unittest
 
-import fileutil as F
+from . import fileutil as F
 
 ## create package-wide hidden window for unattached dialog boxes
-root = Tkinter.Tk()
+root = tkinter.Tk()
 root.withdraw()
 
 class PyDialogError(Exception):
@@ -47,30 +50,30 @@ def askForFile(defaultextension='*.csv',
                title=title)
     
     if not newfile:
-        r = tkFileDialog.askopenfilename(**options)
+        r = filedialog.askopenfilename(**options)
     else:
         del options['multiple']
-        r = tkFileDialog.asksaveasfilename(**options)
+        r = filedialog.asksaveasfilename(**options)
     return r
 
 
 
 def info(title, message):
     """Display info dialog box to user"""
-    tkMessageBox.showinfo(title, message)
+    messagebox.showinfo(title, message)
 
 def warning(title, message):
     """Display warning dialog box to user"""
-    tkMessageBox.showwarning(title, message)
+    messagebox.showwarning(title, message)
 
 def error(title, message):
     """Display error dialog box to user"""
-    tkMessageBox.showerror(title, message)
+    messagebox.showerror(title, message)
 
 def lastException(title=None):
     """Report last exception in a dialog box."""
     msg = __lastError()
-    tkMessageBox.showerror(title= title or 'Python Exception', message=msg)
+    messagebox.showerror(title= title or 'Python Exception', message=msg)
 
 def __lastError():
     """
@@ -94,43 +97,3 @@ def __lastError():
                                           file, trace.tb_lineno, str(value) )
 
     return r
-
-
-
-######################
-### Module testing ###
-import testing
-
-class Test(testing.AutoTest):
-    """Test dialogs"""
-
-    TAGS = [ testing.NORMAL ]
-
-    def prepare( self ):
-        pass
-    
-    def test_askForFile( self ):
-        """fileutil.askForFile test"""
-        if self.local:
-            r = askForFile(title='Test File')
-            self.assertNotEqual(r, 'test.dat')
-    
-    def test_info(self):
-        info('testInfo', 'This is a test.')
-    
-    def test_warning(self):
-        warning('testWarning', 'This is a warning.')
-
-    def test_error(self):
-        error('testError', 'This is an error.')
-    
-    def test_exception(self):
-        try:
-            raise PyDialogError, 'testing'
-        except PyDialogError, what:
-            lastException()
-
-if __name__ == '__main__':
-
-    testing.localTest()
-

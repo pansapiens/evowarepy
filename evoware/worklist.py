@@ -15,11 +15,13 @@
 
 """Generate Evoware pipetting worklists"""
 
-import fileutil as F
-import dialogs as D
+from . import fileutil as F
+from . import dialogs as D
 
-class WorklistException( Exception ):
+
+class WorklistException(Exception):
     pass
+
 
 class Worklist(object):
     """
@@ -134,19 +136,18 @@ class Worklist(object):
     Worklist.write will check your input for line breaks, remove any of them
     and then add a standard line break as required by worklists. That means,
     you don't need to add a line break to the input string.    
-    """   
+    """
 
     ALLOWED_PLATES = [6, 12, 24, 96, 384, 1536]
 
     ## map plate format to 
-    PLATE_ROWS = {6 : 2,
+    PLATE_ROWS = {6: 2,
                   12: 3,
                   24: 4,
                   96: 8,
                   384: 16,
                   1536: 32}
-    
-   
+
     def __init__(self, fname, reportErrors=True):
         """
         @param fname - str, file name for output worklist (will be created)
@@ -155,14 +156,14 @@ class Worklist(object):
         """
         self.fname = F.absfile(fname)
         self._f = None  ## file handle
-        self.reportErrors=reportErrors
+        self.reportErrors = reportErrors
         self._plateformat = 96
         self.rows = 8
         self.columns = 12
-        
+
     def __str__(self):
         return 'Worklist in %s' % self.fname
-        
+
     def _get_file(self):
         if not self._f:
             try:
@@ -180,13 +181,13 @@ class Worklist(object):
         self._plateformat = wells
         self.rows = self.PLATE_ROWS[wells]
         self.columns = wells / self.rows
-        
+
     def _get_plateformat(self):
         return self._plateformat
 
-    plateformat = property( _get_plateformat, _set_plateformat, 
-                            doc='default plate format for column transfers')
-    
+    plateformat = property(_get_plateformat, _set_plateformat,
+                           doc='default plate format for column transfers')
+
     def close(self):
         """
         Close file handle. This method will be called automatically by 
@@ -195,23 +196,23 @@ class Worklist(object):
         if self._f:
             self._f.close()
             self._f = None
-    
+
     def __enter__(self):
         """Context guard for entering ``with`` statement"""
         return self
-    
+
     def __exit__(self, type, value, traceback):
         """Context guard for exiting ``with`` statement"""
         try:
             self.close()
         except:
             pass
-        
+
         ## report last Exception to user
         if type and self.reportErrors:
             D.lastException()
-    
-    def aspirate(self, rackID='', rackLabel='', rackType='', 
+
+    def aspirate(self, rackID='', rackLabel='', rackType='',
                  position=1, tubeID='', volume=0,
                  liquidClass='', tipMask=None):
         """
@@ -227,15 +228,17 @@ class Worklist(object):
         @param tipMask - int, alternative tip mask (1 - 128, 8 bit encoded)
         """
         if not (rackLabel or rackID):
-            raise WorklistException, 'Specify either source labware ID or rack label.'
-        
+            raise WorklistException(
+                'Specify either source labware ID or rack label.')
+
         tipMask = str(tipMask or '')
-        
-        r = 'A;%s;%s;%s;%i;%s;%i;%s;%s;\n' % (rackLabel, rackID, rackType, position,
-                                    tubeID, volume, liquidClass, tipMask)
-        
+
+        r = 'A;%s;%s;%s;%i;%s;%i;%s;%s;\n' % (
+        rackLabel, rackID, rackType, position,
+        tubeID, volume, liquidClass, tipMask)
+
         self.f.write(r)
-    
+
     def A(self, rackID, position, volume, byLabel=False):
         """
         aspirate shortcut with only the three core parameters
@@ -249,8 +252,7 @@ class Worklist(object):
         else:
             self.aspirate(rackLabel=rackID, position=position, volume=volume)
 
-    
-    def dispense(self, rackID='', rackLabel='', rackType='', 
+    def dispense(self, rackID='', rackLabel='', rackType='',
                  position=1, tubeID='', volume=0,
                  liquidClass='', tipMask=None, wash=True):
         """
@@ -270,18 +272,20 @@ class Worklist(object):
                       dispense (default: True)
         """
         if not (rackLabel or rackID):
-            raise WorklistException, 'Specify either destination rack label or ID.'
-        
+            raise WorklistException(
+                'Specify either destination rack label or ID.')
+
         tipMask = str(tipMask or '')
-        
-        r = 'D;%s;%s;%s;%i;%s;%i;%s;%s;\n' % (rackLabel, rackID, rackType, position,
-                                    tubeID, volume, liquidClass, tipMask)
-        
+
+        r = 'D;%s;%s;%s;%i;%s;%i;%s;%s;\n' % (
+        rackLabel, rackID, rackType, position,
+        tubeID, volume, liquidClass, tipMask)
+
         self.f.write(r)
-        
+
         if wash:
             self.f.write('W;\n')
-    
+
     def D(self, rackID, position, volume, wash=True, byLabel=False):
         """
         dispense shortcut with only the three core parameters
@@ -299,13 +303,13 @@ class Worklist(object):
             self.dispense(rackLabel=rackID, position=position, volume=volume,
                           wash=wash)
 
-    def distribute(self, srcRackID='', srcRackLabel='', srcRackType='', 
+    def distribute(self, srcRackID='', srcRackLabel='', srcRackType='',
                    srcPosStart=1, srcPosEnd=96,
-                   dstRackID='', dstRackLabel='', dstRackType='', 
+                   dstRackID='', dstRackLabel='', dstRackType='',
                    dstPosStart=1, dstPosEnd=96,
                    volume=0, liquidClass='',
                    nDitiReuses=1, nMultiDisp=1, direction=0,
-                   excludeWells=[] ):
+                   excludeWells=[]):
         """
         Generate a Reagent Distribution command (R). 
         
@@ -332,26 +336,26 @@ class Worklist(object):
         @param exlcudeWells - [int], list of destination wells to skip []
         """
         if not (srcRackLabel or srcRackID):
-            raise WorklistException, 'Specify either source rack label or ID.'
+            raise WorklistException('Specify either source rack label or ID.')
         if not (dstRackLabel or dstRackID):
-            raise WorklistException, 'Specify either destination rack label or ID.'
-        
-        r = 'R;%s;%s;%s;%i;%i;' % (srcRackLabel, srcRackID, srcRackType, 
-                                    srcPosStart, srcPosEnd)
-        r+= '%s;%s;%s;%i;%i;' % (dstRackLabel, dstRackID, dstRackType, 
-                                 dstPosStart, dstPosEnd)
-        
-        r+= '%i;%s;%i;%i;%i;' % (volume, liquidClass, nDitiReuses, nMultiDisp,
-                                direction)
-        
+            raise WorklistException(
+                'Specify either destination rack label or ID.')
+
+        r = 'R;%s;%s;%s;%i;%i;' % (srcRackLabel, srcRackID, srcRackType,
+                                   srcPosStart, srcPosEnd)
+        r += '%s;%s;%s;%i;%i;' % (dstRackLabel, dstRackID, dstRackType,
+                                  dstPosStart, dstPosEnd)
+
+        r += '%i;%s;%i;%i;%i;' % (volume, liquidClass, nDitiReuses, nMultiDisp,
+                                  direction)
+
         if excludeWells:
             r += ';'.join([str(x) for x in excludeWells])
-        
-        r+= '\n'
-        
+
+        r += '\n'
+
         self.f.write(r)
-        
-    
+
     def transfer(self, srcID, srcPosition, dstID, dstPosition, volume,
                  wash=True, byLabel=False):
         """
@@ -367,9 +371,8 @@ class Worklist(object):
         """
         self.A(srcID, srcPosition, volume, byLabel=byLabel)
         self.D(dstID, dstPosition, volume, wash=wash, byLabel=byLabel)
-  
-    
-    def transferColumn(self, srcID, srcCol, dstID, dstCol, 
+
+    def transferColumn(self, srcID, srcCol, dstID, dstCol,
                        volume,
                        liquidClass='', tipMask=None, wash=True, byLabel=False):
         """
@@ -388,22 +391,21 @@ class Worklist(object):
         """
         pos_src = (srcCol - 1) * self.rows + 1
         pos_dst = (dstCol - 1) * self.rows + 1
-        
+
         for i in range(0, self.rows):
-            self.aspirate(rackID=srcID, 
-                          position=pos_src + i, 
-                          volume=volume, 
+            self.aspirate(rackID=srcID,
+                          position=pos_src + i,
+                          volume=volume,
                           liquidClass=liquidClass, tipMask=tipMask)
-            self.dispense(rackID=dstID, 
+            self.dispense(rackID=dstID,
                           position=pos_dst + i,
                           volume=volume,
-                          liquidClass=liquidClass, tipMask=tipMask, 
+                          liquidClass=liquidClass, tipMask=tipMask,
                           wash=wash)
         return i
-    
-    
-    def multidiswithflush(self, srcLabel='', srcPos=1, dstLabel='', dstPos=[], 
-                          volume=0, tipVolume=900, liquidClass='', tipMask=None, 
+
+    def multidiswithflush(self, srcLabel='', srcPos=1, dstLabel='', dstPos=[],
+                          volume=0, tipVolume=900, liquidClass='', tipMask=None,
                           wash=True, flush=True):
         """
         
@@ -413,56 +415,55 @@ class Worklist(object):
         n_dispense = len(dstPos)
         totalVolume = volume * n_dispense
         tipVolume = tipVolume - tipVolume % volume  # reduce tip volume to nearest multiple of dispense volume
-        
-        dstPos.reverse() # first entry is last now
-        
+
+        dstPos.reverse()  # first entry is last now
+
         while totalVolume > 0:
             aspVolume = totalVolume if totalVolume <= tipVolume else tipVolume
-        
-            self.aspirate(rackLabel=srcLabel, 
-                            position=srcPos, 
-                            volume=aspVolume, 
-                            liquidClass=liquidClass, tipMask=tipMask)
-            
+
+            self.aspirate(rackLabel=srcLabel,
+                          position=srcPos,
+                          volume=aspVolume,
+                          liquidClass=liquidClass, tipMask=tipMask)
+
             n_next_dispense = int(aspVolume / volume)
-            
-            assert n_next_dispense <= len(dstPos), 'missmatch between aspiration volume and dispense actions left'
-            
+
+            assert n_next_dispense <= len(
+                dstPos), 'missmatch between aspiration volume and dispense actions left'
+
             for i in range(0, n_next_dispense):
-                
                 well = dstPos.pop()
-                
-                self.dispense(rackLabel=dstLabel, 
+
+                self.dispense(rackLabel=dstLabel,
                               position=well,
                               volume=volume,
-                              liquidClass=liquidClass, tipMask=tipMask, 
+                              liquidClass=liquidClass, tipMask=tipMask,
                               wash=False)
-                
+
             totalVolume = totalVolume - aspVolume
-            
+
             if totalVolume > 0 and flush:
                 self.flush()
-            
+
         if wash:
             self.wash()
-    
-    
+
     def wash(self):
         """generate 'W;' wash / tip replacement command"""
         self.f.write('W;\n')
-    
+
     def flush(self):
         """generate 'F;' tip flushing command"""
         self.f.write('F;\n')
-        
+
     def B(self):
         """Generate break command forcing execution of all previous lines"""
         self.f.write('B;\n')
-        
+
     def comment(self, comment):
         """Insert a work list comment"""
         self.write('C; ' + comment)
-    
+
     def write(self, line):
         """
         Directly write a custom line to worklist. A line break is added 
@@ -470,71 +471,5 @@ class Worklist(object):
         """
         line.replace('\n', '')
         line.replace('\r', '')
-        
+
         self.f.write(line + '\n')
-    
-######################
-### Module testing ###
-import testing, tempfile
-
-class Test(testing.AutoTest):
-    """Test Worklist"""
-
-    TAGS = [ testing.NORMAL ]
-
-    def setUp( self ):
-        """Called before *each* test"""
-        self.fname = tempfile.mktemp(suffix=".gwl", prefix='test_worklist_')
-    
-    def tearDown(self):
-        """Called after *each* test"""
-        if not self.DEBUG:
-            F.tryRemove(self.fname, verbose=self.DEBUG)
-    
-    def test_createWorklist( self ):
-        with Worklist(self.fname) as wl:
-            wl.f.write('test line 1')
-            wl.f.write('test line 2')
-
-        self.assertEqual(wl._f, None)
-
-    def test_worklistFileError( self ):
-        
-        def inner_call():
-            with Worklist('', reportErrors=False) as wl:
-                wl.f.write('test line 1')
-                wl.f.write('test line 2')
-
-        self.assertRaises(IOError, inner_call)
-    
-    def test_gwl_aspirate_dispense( self ):
-        with Worklist(self.fname, reportErrors=False) as wl:
-            for i in range(8):
-                wl.aspirate(rackLabel='Src1', position=i+1, volume=25)
-                wl.dispense(rackLabel='dst1', position=i+1, volume=25)
-            
-            for i in range(8):
-                wl.A('src2', i+1, 100)
-                wl.D('dst2', i+1, 100)
-            
-            for i in range(96):
-                wl.transfer('src3', i+1, 'dst3', i+1, 150, wash=False)
-    
-    def test_worklist_highlevel(self):
-
-        with Worklist(self.fname, reportErrors=False) as wl:
-            wl.comment('Worklist generated by evoware.worklist.py')
-            wl.transferColumn('src3', 2, 'dst3', 12, 120, wash=True)
-            
-            wl.comment('worklist.distribute example')
-            wl.distribute(srcRackLabel='src1', srcPosStart=1, srcPosEnd=8,
-                          dstRackLabel='dst1', dstPosStart=1, dstPosEnd=96,
-                          volume=100, 
-                          nDitiReuses=2, nMultiDisp=12, 
-                          excludeWells=[1,96] )
-
-    
-
-if __name__ == '__main__':
-
-    testing.localTest()

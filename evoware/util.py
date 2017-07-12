@@ -18,13 +18,16 @@
 import sys
 from inspect import getframeinfo
 
+
 class ParsingError(Exception):
     pass
 
+
 def tolist(x):
-    if type(x) in [list,tuple]:
+    if type(x) in [list, tuple]:
         return x
     return [x]
+
 
 def lastError():
     """
@@ -40,10 +43,10 @@ def lastError():
             why = sys.exc_info()[1].args
         except:
             pass
-        file = getframeinfo( trace.tb_frame )[0]
+        file = getframeinfo(trace.tb_frame)[0]
 
-        result = "%s in %s line %i:\n\t%s." % ( str(sys.exc_type),
-                  file, trace.tb_lineno, str(why) )
+        result = "%s in %s line %i:\n\t%s." % (str(sys.exc_type),
+                                               file, trace.tb_lineno, str(why))
 
     finally:
         trace = None
@@ -51,7 +54,7 @@ def lastError():
     return result
 
 
-def file2dic( filename ):
+def file2dic(filename):
     """
     Construct dictionary from file with key - value pairs (one per line).
 
@@ -64,27 +67,27 @@ def file2dic( filename ):
     try:
         line = None
         result = {}
-        for line in open( filename ):
+        for line in open(filename):
 
             if '#' in line:
-                line = line[ : line.index('#') ]
+                line = line[: line.index('#')]
             line = line.strip()
 
             l = line.split()[1:]
 
-            if len( l ) == 0 and len( line ) > 0:
-                result[ line.split()[0] ] = ''
-            if len( l ) == 1:
-                result[ line.split()[0] ] = l[0]
-            if len( l ) > 1:
-                result[ line.split()[0] ] = l
+            if len(l) == 0 and len(line) > 0:
+                result[line.split()[0]] = ''
+            if len(l) == 1:
+                result[line.split()[0]] = l[0]
+            if len(l) > 1:
+                result[line.split()[0]] = l
     except IOError:
         raise
     except:
         s = "Error parsing option file %s." % filename
-        s += '\nLine: ' + str( line )
+        s += '\nLine: ' + str(line)
         s += '\n' + lastError()
-        raise ParsingError( s )
+        raise ParsingError(s)
 
     return result
 
@@ -111,52 +114,52 @@ def get_cmdDict(lst_cmd, dic_default):
              ala {'pdb':['in1.pdb', 'in2.pdb'], 'psf':'in.psf', 'o':'out.dat'}
     @rtype: {<option> : <value>}
     """
-    dic_cmd = {}                     # create return dictionary
+    dic_cmd = {}  # create return dictionary
     try:
 
         for cmd in lst_cmd:
-            if (cmd[0] == '-'):               # this entry is new option
-                current_option = cmd[1:]      # take all but leading "-"
+            if (cmd[0] == '-'):  # this entry is new option
+                current_option = cmd[1:]  # take all but leading "-"
                 dic_cmd[current_option] = ""  # make sure key exists even
-                                              # w/o value
-                counter = 0        # number of values for this option
-            else:                  # this entry is value for latest option
+                # w/o value
+                counter = 0  # number of values for this option
+            else:  # this entry is value for latest option
 
                 if counter < 1:
                     dic_cmd[current_option] = cmd
 
-    # in case, several values follow after a "-xxx" option convert dictionary
-    # entry into list and add all elements (until the next "-") to this list
+                    # in case, several values follow after a "-xxx" option convert dictionary
+                    # entry into list and add all elements (until the next "-") to this list
                 else:
-                    if counter == 1:   # there is already a value assigned
-    # convert to list
+                    if counter == 1:  # there is already a value assigned
+                        # convert to list
                         dic_cmd[current_option] = [dic_cmd[current_option]]
-    # add value to list
+                        # add value to list
                     dic_cmd[current_option] = dic_cmd[current_option] + [cmd]
 
                 counter = counter + 1
 
-    except (KeyError, UnboundLocalError), why:
-        raise KeyError, "Can't resolve command line options.\n \tError:"+\
-              str(why)
+    except (KeyError, UnboundLocalError) as why:
+        raise KeyError("Can't resolve command line options.\n \tError: %s"
+                       % str(why))
 
     ## get extra options from external file
     try:
         if dic_cmd.has_key('x'):
-            d = file2dic( dic_cmd['x'] )
-            d.update( dic_cmd )
+            d = file2dic(dic_cmd['x'])
+            d.update(dic_cmd)
             dic_cmd = d
     except IOError:
-        raise IOError, "Error opening %s."% dic_cmd['x']
+        raise IOError("Error opening %s." % dic_cmd['x'])
 
     ## fill in missing default values
-    dic_default.update( dic_cmd )
+    dic_default.update(dic_cmd)
     dic_cmd = dic_default
 
     return dic_cmd
 
 
-def cmdDict( defaultDic={} ):
+def cmdDict(defaultDic={}):
     """
     Convenience implementation of L{get_cmdDict}. Take command line options
     from sys.argv[1:] and convert them into dictionary.
@@ -172,5 +175,4 @@ def cmdDict( defaultDic={} ):
     @return: command dictionary
     @rtype: dic
     """
-    return get_cmdDict( sys.argv[1:], defaultDic )
-
+    return get_cmdDict(sys.argv[1:], defaultDic)

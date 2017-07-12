@@ -15,14 +15,14 @@
 
 """Short one-line description of this module"""
 
-import sys ## keep import statements at the top of the module
+import sys  ## keep import statements at the top of the module
 
 
-class ExampleException( Exception ):
+class ExampleException(Exception):
     pass
 
 
-class ExampleClass( object ):
+class ExampleClass(object):
     """
     Detailed description of this class.
 
@@ -38,7 +38,7 @@ class ExampleClass( object ):
       * Width -- please try to keep your code within the classic 80 char. limit.
     """
 
-    def __init__(self, name, parent=None, verbose=0 ):
+    def __init__(self, name, parent=None, verbose=0):
         """
         Describe all arguments of the method so that they can be parsed by
         epydoc.
@@ -52,8 +52,7 @@ class ExampleClass( object ):
         self._parent = parent
         self.verbose = verbose
 
-
-    def reportSomething( self ):
+    def reportSomething(self):
         """
         Create a simple report.
         @return: str; Fake report
@@ -61,56 +60,58 @@ class ExampleClass( object ):
         return "%s: Hello World!" % self.name
 
     ## Use properties!
-    def setParent( self, o ):
+    def setParent(self, o):
         self._parent = str(o)
 
-    def getParent( self ):
+    def getParent(self):
         return self._parent
 
-    parent = property( getParent, setParent )
+    parent = property(getParent, setParent)
 
     ## Override Python special methods!
-    def __str__( self ):
+    def __str__(self):
         """String representation of this object"""
         if not self.parent:
             return self.name
 
-        return str( self.parent ) + ' > ' + self.name
+        return str(self.parent) + ' > ' + self.name
+
 
 ######################
 ### Module testing ###
-import testing
+import unittest
 
-class Test(testing.AutoTest):
+
+class Test(unittest.TestCase):
     """Test GoodCodeTemplate"""
 
-    TAGS = [ testing.LONG ]
+    def setUp(self):
+        self.e1 = ExampleClass('example1')
 
-    def prepare( self ):
-        self.e1 = ExampleClass( 'example1' )
-
-    def test_exampleReport( self ):
+    def test_exampleReport(self):
         """ExampleClass.report test"""
         self.result = self.e1.reportSomething()
 
-        if self.local:   ## only if the module is executed directly
-            print
-            print self.result 
+        if self.local:  ## only if the module is executed directly
+            print()
+            print()
+            self.result
 
-        self.assertEqual( self.result, 'example1: Hello World!',
-                          'unexpected result' )
+        self.assertEqual(self.result, 'example1: Hello World!',
+                         'unexpected result')
 
-    def test_exampleParent( self ):
+    def test_exampleParent(self):
         """ExampleClass.parent test"""
-        self.e2 = ExampleClass( 'example2' )
+        self.e2 = ExampleClass('example2')
         self.e2.parent = self.e1
-        
-        if self.local:
-            print
-            print self.e2
 
-        self.assertEqual( str(self.e2), 'example1 > example2' )
+        if self.local:
+            print()
+            print()
+            self.e2
+
+        self.assertEqual(str(self.e2), 'example1 > example2')
+
 
 if __name__ == '__main__':
-
-    testing.localTest()
+    unittest.main()

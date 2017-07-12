@@ -1,5 +1,6 @@
 ##  evoware/py -- python modules for Evoware scripting
 ##   Copyright 2014 Raik Gruenberg
+##   Copyright 2017 Andrew Perry (Python 3)
 ##
 ##   Licensed under the Apache License, Version 2.0 (the "License");
 ##   you may not use this file except in compliance with the License.
@@ -14,19 +15,22 @@
 ##   limitations under the License.
 """microplate format handling"""
 
-import numpy as N
-import re, string
+import numpy as np
+import re
+import string
+
 
 class PlateError(Exception):
     pass
 
+
 class PlateFormat(object):
     """
-    Describe plate columns : rows dimensions and convert back and for between 
+    Describe plate columns : rows dimensions and convert back and for between
     'human' (e.g. 'B2') and 'Tecan' (e.g. 10) well numbering.
-    
+
     Usage:
-    
+
     >>> f = PlateFormat(96)
     >>> f.nx
     12
@@ -38,12 +42,11 @@ class PlateFormat(object):
     96
     >>> f.int2human(96)
     'H12'
-    
+
     """
-    
+
     ex_position = re.compile('([A-Za-z]{0,1})([0-9]+)')
-    
-    
+
     def __init__(self, n, nx=None, ny=None):
         """
         Define Plate format. Number of columns (nx) and rows (ny) is deduced
@@ -51,33 +54,32 @@ class PlateFormat(object):
         gives the expected dimensions for plates with 1, 2, 6, 12, 24, 48,
         96, 384 and 1536 wells. For any format more odd than this, nx and ny
         should be given explicitely.
-        
+
         @param n: int, number of wells (e.g. 96)
         @param nx: int, optionally, number of columns (else calculated from n)
         @param ny: int, optionally, number of rows (else calculated from nx)
         """
         self.n = int(n)
-        self.nx = int(nx or round(N.sqrt(3./2 * self.n)) )
-        self.ny = int(ny or round(1.0*n/self.nx) )
-        
+        self.nx = int(nx or round(np.sqrt(3. / 2 * self.n)))
+        self.ny = int(ny or round(1.0 * n / self.nx))
+
         if self.nx * self.ny != self.n:
             raise PlateError('invalid plate format: %r x %r != %r' % \
                              (self.nx, self.ny, self.n))
-    
-    
+
     def str2tuple(self, pos):
         """
         Normalize position string to tuple.
         @param well: str, like 'A1' or '12'
         @return (str, int) - uppercase letter or '', number
         """
-        assert type(pos) in [unicode, str]
+        assert isinstance(pos, str)
         match = self.ex_position.match(pos)
         if not match:
             return '', None
         letter, number = match.groups()
         return letter.upper(), int(number)
-    
+
     def pos2int(self, pos):
         """
         Convert input position to Tecan numbering
@@ -90,21 +92,21 @@ class PlateFormat(object):
             letter, number = '', int(pos)
         else:
             letter, number = self.str2tuple(pos)
-            
+
         if letter:
             row = string.ascii_uppercase.find(letter) + 1
             col = number
             r = (col - 1) * self.ny + row
         else:
             r = number
-        
+
         if r > self.n:
-            raise PlateError, 'plate position %r exceeds number of wells' % r
+            raise PlateError('plate position %r exceeds number of wells' % r)
         if not r:
-            raise PlateError, 'invalid plate position: %r' % pos
-        
+            raise PlateError('invalid plate position: %r' % pos)
+
         return r
-    
+
     def int2human(self, pos):
         """
         Convert Tecan well position (e.g. running from 1 to 96) into human-
@@ -113,78 +115,53 @@ class PlateFormat(object):
         @return str, plate coordinate
         """
         assert type(pos) is int
-        
-        col = int((pos-1) / self.ny)
-        row = int((pos-1) % self.ny)
-        
-        if col+1 > self.nx or row > self.ny:
-            raise PlateError, 'position outside plate dimensions'
-        
-        r = string.ascii_uppercase[row] + str(col+1)
+
+        col = int((pos - 1) / self.ny)
+        row = int((pos - 1) % self.ny)
+
+        if col + 1 > self.nx or row > self.ny:
+            raise PlateError('position outside plate dimensions')
+
+        r = string.ascii_uppercase[row] + str(col + 1)
         return r
-    
+
+    def gridindex2int(self, row, col):
+        """
+        >>> p = PlateFormat(96)
+        >>> p.gridindex2int(0, 0)
+        1
+        >>> p.gridindex2int(7, 0)
+        8
+        >>> p.gridindex2int(0, 1)
+        9
+        >>> p.gridindex2int(7, 1)
+        16
+        >>> p.gridindex2int(7, 2)
+        24
+        >>> p.gridindex2int(3, 2)
+        20
+        >>> p.gridindex2int(7, 5)
+        48
+
+        :param row:
+        :type row:
+        :param col:
+        :type col:
+        :param num_cols:
+        :type num_cols:
+        :param num_rows:
+        :type num_rows:
+        :return:
+        :rtype:
+        """
+        return (col * self.ny) + row + 1
+
     def __str__(self):
         return '%i well PlateFormat' % self.n
-    
+
     def __repr__(self):
         return '<%s>' % str(self)
-    
+
     def __eq__(self, o):
         return isinstance(o, PlateFormat) and \
                self.n == o.n and self.nx == o.nx and self.ny == o.ny
-    
-######################
-### Module testing ###
-import testing
-
-class Test(testing.AutoTest):
-    """Test PlateFormat"""
-
-    TAGS = [ testing.NORMAL ]
-
-    def test_plateformat_init(self):
-        formats = {}
-        for n in [6, 12, 24, 96, 384, 1536]:
-            f = PlateFormat(n)
-            formats[n] = f
-            self.assertEqual(f.n, f.nx * f.ny, 'plate format error')
-        
-        self.assertEqual(formats[6].nx, 3, msg='6-well definition error')
-        self.assertEqual(formats[12].nx, 4, msg='12-well definition error')
-        self.assertEqual(formats[24].nx, 6, msg='24-well definition error')
-        self.assertEqual(formats[96].nx, 12, msg='96-well definition error')
-        self.assertEqual(formats[384].nx, 24, msg='384-well definition error')
-        self.assertEqual(formats[1536].nx, 48, msg='1536-well definition error')
-    
-    def test_plateformat_pos2int(self):
-        f = PlateFormat(96)
-        self.assertEqual(f.pos2int('A1'), 1)
-        self.assertEqual(f.pos2int('H1'), 8)
-        self.assertEqual(f.pos2int('b1'), 2)
-        self.assertEqual(f.pos2int('A2'), 9)
-        self.assertEqual(f.pos2int('A12'), 89)
-        self.assertEqual(f.pos2int('h12'), 96)
-    
-    def test_plateformat_human2int(self):
-        f = PlateFormat(96)
-        
-        tests = ['A1', 'B1', 'H1', 'A2', 'B2', 'H2', 'A12', 'B12', 'H12']
-        
-        for t in tests:
-            pos = f.pos2int(t)
-            human = f.int2human(pos)
-            self.assertEqual(t, human)
-    
-    def test_plateformat_eq(self):
-        f1 = PlateFormat(96)
-        f2 = PlateFormat(96)
-        f3 = PlateFormat(96, nx=1, ny=96)
-        
-        self.assertTrue(f1 == f2)
-        self.assertFalse(f2 == f3)
-        self.assertEqual(f1,f2)
-        
-
-if __name__ == '__main__':
-    
-    testing.localTest()
