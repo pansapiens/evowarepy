@@ -483,11 +483,11 @@ class CherryWorklist(object):
     the target Excel table (see TargetIndex).
     """
 
-    def __init__(self, fout, targetIndex, sourceIndex, reportErrors=False):
+    def __init__(self, fh, targetIndex, sourceIndex, reportErrors=False):
         self.iTargets = targetIndex
         self.iParts = sourceIndex
         self.iProcessed = TargetIndex()
-        self.wl = W.Worklist(fout, reportErrors=reportErrors)
+        self.wl = W.Worklist(fh, reportErrors=reportErrors)
 
     def close(self):
         """close the internal worklist file handle"""

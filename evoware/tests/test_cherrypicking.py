@@ -17,12 +17,13 @@ class Test(unittest.TestCase):
         self.f_simple = path.join(testdata_dir, 'targetlist.xls')
         self.f_pcr = path.join(testdata_dir, 'targetlist_PCR.xls')
 
-        self.f_worklist = tempfile.mktemp(suffix=".gwl",
-                                          prefix="test_cherrypicking_")
+        self.f_worklist_fh = open(tempfile.mktemp(
+            suffix=".gwl",
+            prefix="test_cherrypicking_"), 'wt')
 
     def tearDown(self):
         """Called after all tests"""
-        F.tryRemove(self.f_worklist)
+        # F.tryRemove(self.f_worklist)
 
     def test_partIndex(self):
         self.p = PartIndex()
@@ -60,7 +61,7 @@ class Test(unittest.TestCase):
         t = TargetIndex(srccolumns=['template', 'primer1', 'primer2'])
         t.readExcel(self.f_pcr)
 
-        cwl = CherryWorklist(self.f_worklist, t, parts)
+        cwl = CherryWorklist(self.f_worklist_fh, t, parts)
 
         cwl.toWorklist(byLabel=True, volume=10)
 

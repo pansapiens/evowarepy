@@ -15,6 +15,8 @@
 
 """Generate Evoware pipetting worklists"""
 
+import io
+
 from . import fileutil as F
 from . import dialogs as D
 
@@ -148,32 +150,32 @@ class Worklist(object):
                   384: 16,
                   1536: 32}
 
-    def __init__(self, fname, reportErrors=True):
+    def __init__(self, fh=None, liquidClass=None, reportErrors=False):
         """
         @param fname - str, file name for output worklist (will be created)
         @param reportErrors - bool, report certain exceptions via dialog box
                               to user [True]
         """
-        self.fname = F.absfile(fname)
-        self._f = None  ## file handle
+        #self.fname = F.absfile(fname)
+        self._target_fh = fh
+        self.fname = getattr(self._target_fh, 'name', None)
+        self._output_str = io.StringIO()  ## file handle
         self.reportErrors = reportErrors
         self._plateformat = 96
         self.rows = 8
         self.columns = 12
+        self.defaultLiquidClass = liquidClass
 
     def __str__(self):
+        return self._output_str.getvalue()
+
+    def __repr__(self):
         return 'Worklist in %s' % self.fname
 
     def _get_file(self):
-        if not self._f:
-            try:
-                self._f = open(self.fname, mode='w')
-            except:
-                if self.reportErrors: D.lastException()
-                raise
-        return self._f
+        return self._output_str
 
-    f = property(_get_file, doc='open file handle for writing')
+    _out = property(_get_file, doc='open file handle for writing')
 
     def _set_plateformat(self, wells=96):
         if not wells in self.ALLOWED_PLATES:
@@ -193,9 +195,9 @@ class Worklist(object):
         Close file handle. This method will be called automatically by 
         __del__ or the with statement.
         """
-        if self._f:
-            self._f.close()
-            self._f = None
+        if self._target_fh:
+            self._target_fh.close()
+            self._target_fh = None
 
     def __enter__(self):
         """Context guard for entering ``with`` statement"""
@@ -203,18 +205,39 @@ class Worklist(object):
 
     def __exit__(self, type, value, traceback):
         """Context guard for exiting ``with`` statement"""
-        try:
-            self.close()
-        except:
-            pass
+        if self._target_fh:
+            with self._target_fh as fh:
+                fh.write(self._output_str.getvalue())
 
-        ## report last Exception to user
-        if type and self.reportErrors:
-            D.lastException()
+        self.close()
 
-    def aspirate(self, rackID='', rackLabel='', rackType='',
-                 position=1, tubeID='', volume=0,
-                 liquidClass='', tipMask=None):
+    def _transfer_op(self, transferType, rackID='', rackLabel='', rackType='',
+                     position=1, tubeID='', volume=0, liquidClass=None,
+                     tipMask=None):
+
+        if not (rackLabel or rackID):
+            raise WorklistException(
+                'Specify either source labware ID or rack label.')
+
+        # tipMask = str(tipMask or '')
+        if liquidClass is None and self.defaultLiquidClass is None:
+            liquidClass = ''
+        else:
+            liquidClass = self.defaultLiquidClass
+
+        fields = [rackLabel, rackID, rackType, position, tubeID, volume,
+                  liquidClass, tipMask]
+        fields = [str(f) for f in fields]
+
+        if tipMask is None:
+            fields.pop()
+
+        r = '%s\n' % ';'.join([transferType] + fields)
+
+        self._out.write(r)
+
+    def aspirate(self, rackID='', rackLabel='', rackType='', position=1,
+                 tubeID='', volume=0, liquidClass='', tipMask=None):
         """
         Generate a single aspirate command. Required parameters are:
         @param rackLabel or rackID - str, source rack label or barcode ID
@@ -227,17 +250,9 @@ class Worklist(object):
         @param liquidClass - str, alternative liquid class
         @param tipMask - int, alternative tip mask (1 - 128, 8 bit encoded)
         """
-        if not (rackLabel or rackID):
-            raise WorklistException(
-                'Specify either source labware ID or rack label.')
 
-        tipMask = str(tipMask or '')
-
-        r = 'A;%s;%s;%s;%i;%s;%i;%s;%s;\n' % (
-        rackLabel, rackID, rackType, position,
-        tubeID, volume, liquidClass, tipMask)
-
-        self.f.write(r)
+        self._transfer_op('A', rackID, rackLabel, rackType, position, tubeID,
+                          volume, liquidClass, tipMask)
 
     def A(self, rackID, position, volume, byLabel=False):
         """
@@ -252,9 +267,8 @@ class Worklist(object):
         else:
             self.aspirate(rackLabel=rackID, position=position, volume=volume)
 
-    def dispense(self, rackID='', rackLabel='', rackType='',
-                 position=1, tubeID='', volume=0,
-                 liquidClass='', tipMask=None, wash=True):
+    def dispense(self, rackID='', rackLabel='', rackType='', position=1,
+                 tubeID='', volume=0, liquidClass='', tipMask=None, wash=True):
         """
         Generate a single dispense command. Required parameters are:
         @param rackLabel or rackID - str, source rack label or barcode ID
@@ -271,20 +285,11 @@ class Worklist(object):
         @param wash - bool, include 'W' statement for tip replacement after
                       dispense (default: True)
         """
-        if not (rackLabel or rackID):
-            raise WorklistException(
-                'Specify either destination rack label or ID.')
-
-        tipMask = str(tipMask or '')
-
-        r = 'D;%s;%s;%s;%i;%s;%i;%s;%s;\n' % (
-        rackLabel, rackID, rackType, position,
-        tubeID, volume, liquidClass, tipMask)
-
-        self.f.write(r)
+        self._transfer_op('D', rackID, rackLabel, rackType, position, tubeID,
+                          volume, liquidClass, tipMask)
 
         if wash:
-            self.f.write('W;\n')
+            self._out.write('W;\n')
 
     def D(self, rackID, position, volume, wash=True, byLabel=False):
         """
@@ -354,10 +359,10 @@ class Worklist(object):
 
         r += '\n'
 
-        self.f.write(r)
+        self._out.write(r)
 
     def transfer(self, srcID, srcPosition, dstID, dstPosition, volume,
-                 wash=True, byLabel=False):
+                 srcRackType='', dstRackType='', wash=True, byLabel=False):
         """
         @param srcID - str, source labware ID (or rack label if missing)
         @param srcPosition - int, source well position
@@ -369,8 +374,15 @@ class Worklist(object):
         @param byLabel - bool, use rack label instead of labware/rack ID [False]
 
         """
-        self.A(srcID, srcPosition, volume, byLabel=byLabel)
-        self.D(dstID, dstPosition, volume, wash=wash, byLabel=byLabel)
+        self.aspirate(rackID=srcID,
+                      rackType=srcRackType,
+                      position=srcPosition,
+                      volume=volume)
+        self.dispense(rackID=dstID,
+                      rackType=dstRackType,
+                      position=dstPosition,
+                      volume=volume,
+                      wash=wash)
 
     def transferColumn(self, srcID, srcCol, dstID, dstCol,
                        volume,
@@ -450,15 +462,15 @@ class Worklist(object):
 
     def wash(self):
         """generate 'W;' wash / tip replacement command"""
-        self.f.write('W;\n')
+        self._out.write('W;\n')
 
     def flush(self):
         """generate 'F;' tip flushing command"""
-        self.f.write('F;\n')
+        self._out.write('F;\n')
 
     def B(self):
         """Generate break command forcing execution of all previous lines"""
-        self.f.write('B;\n')
+        self._out.write('B;\n')
 
     def comment(self, comment):
         """Insert a work list comment"""
@@ -472,4 +484,4 @@ class Worklist(object):
         line.replace('\n', '')
         line.replace('\r', '')
 
-        self.f.write(line + '\n')
+        self._out.write(line + '\n')
