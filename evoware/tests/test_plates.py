@@ -20,12 +20,12 @@ class Test(unittest.TestCase):
 
     def test_plateformat_pos2int(self):
         f = PlateFormat(96)
-        self.assertEqual(f.pos2int('A1'), 1)
-        self.assertEqual(f.pos2int('H1'), 8)
-        self.assertEqual(f.pos2int('b1'), 2)
-        self.assertEqual(f.pos2int('A2'), 9)
-        self.assertEqual(f.pos2int('A12'), 89)
-        self.assertEqual(f.pos2int('h12'), 96)
+        self.assertEqual(f.human2int('A1'), 1)
+        self.assertEqual(f.human2int('H1'), 8)
+        self.assertEqual(f.human2int('b1'), 2)
+        self.assertEqual(f.human2int('A2'), 9)
+        self.assertEqual(f.human2int('A12'), 89)
+        self.assertEqual(f.human2int('h12'), 96)
 
     def test_plateformat_human2int(self):
         f = PlateFormat(96)
@@ -33,7 +33,7 @@ class Test(unittest.TestCase):
         tests = ['A1', 'B1', 'H1', 'A2', 'B2', 'H2', 'A12', 'B12', 'H12']
 
         for t in tests:
-            pos = f.pos2int(t)
+            pos = f.human2int(t)
             human = f.int2human(pos)
             self.assertEqual(t, human)
 

@@ -18,7 +18,7 @@
 import io
 
 from . import fileutil as F
-from . import dialogs as D
+# from . import dialogs as D
 
 
 class WorklistException(Exception):
@@ -211,7 +211,7 @@ class Worklist(object):
 
         self.close()
 
-    def _transfer_op(self, transferType, rackID='', rackLabel='', rackType='',
+    def _transfer_op(self, transferType, rackLabel='', rackID='', rackType='',
                      position=1, tubeID='', volume=0, liquidClass=None,
                      tipMask=None):
 
@@ -236,7 +236,7 @@ class Worklist(object):
 
         self._out.write(r)
 
-    def aspirate(self, rackID='', rackLabel='', rackType='', position=1,
+    def aspirate(self, rackLabel='', rackID='', rackType='', position=1,
                  tubeID='', volume=0, liquidClass='', tipMask=None):
         """
         Generate a single aspirate command. Required parameters are:
@@ -267,7 +267,7 @@ class Worklist(object):
         else:
             self.aspirate(rackLabel=rackID, position=position, volume=volume)
 
-    def dispense(self, rackID='', rackLabel='', rackType='', position=1,
+    def dispense(self, rackLabel='', rackID='', rackType='', position=1,
                  tubeID='', volume=0, liquidClass='', tipMask=None, wash=True):
         """
         Generate a single dispense command. Required parameters are:
@@ -308,9 +308,9 @@ class Worklist(object):
             self.dispense(rackLabel=rackID, position=position, volume=volume,
                           wash=wash)
 
-    def distribute(self, srcRackID='', srcRackLabel='', srcRackType='',
+    def distribute(self, srcRackLabel='', srcRackID='', srcRackType='',
                    srcPosStart=1, srcPosEnd=96,
-                   dstRackID='', dstRackLabel='', dstRackType='',
+                   dstRackLabel='', dstRackID='', dstRackType='',
                    dstPosStart=1, dstPosEnd=96,
                    volume=0, liquidClass='',
                    nDitiReuses=1, nMultiDisp=1, direction=0,

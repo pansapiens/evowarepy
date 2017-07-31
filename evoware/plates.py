@@ -18,6 +18,7 @@
 import numpy as np
 import re
 import string
+import math
 
 
 class PlateError(Exception):
@@ -36,9 +37,9 @@ class PlateFormat(object):
     12
     >>> f.ny
     8
-    >>> f.pos2int('A2')
+    >>> f.human2int('A2')
     9
-    >>> f.pos2int('h12')
+    >>> f.human2int('h12')
     96
     >>> f.int2human(96)
     'H12'
@@ -80,11 +81,11 @@ class PlateFormat(object):
         letter, number = match.groups()
         return letter.upper(), int(number)
 
-    def pos2int(self, pos):
+    def human2int(self, pos):
         """
         Convert input position to Tecan numbering
         @param pos: str | int | float, e.g. 'A2' or 'a2' or 2 or 2.0
-        @return int, plate position according to Tecan numbering ('B1'=>9)
+        @return int, plate position according to Tecan numbering ('A2'=>9)
 
         @raise PlateError, if the resulting position is outside well number
         """
@@ -127,20 +128,20 @@ class PlateFormat(object):
 
     def gridindex2int(self, row, col):
         """
-        >>> p = PlateFormat(96)
-        >>> p.gridindex2int(0, 0)
+        >>> cp96 = PlateFormat(96)
+        >>> cp96.gridindex2int(0, 0)
         1
-        >>> p.gridindex2int(7, 0)
+        >>> cp96.gridindex2int(7, 0)
         8
-        >>> p.gridindex2int(0, 1)
+        >>> cp96.gridindex2int(0, 1)
         9
-        >>> p.gridindex2int(7, 1)
+        >>> cp96.gridindex2int(7, 1)
         16
-        >>> p.gridindex2int(7, 2)
+        >>> cp96.gridindex2int(7, 2)
         24
-        >>> p.gridindex2int(3, 2)
+        >>> cp96.gridindex2int(3, 2)
         20
-        >>> p.gridindex2int(7, 5)
+        >>> cp96.gridindex2int(7, 5)
         48
 
         :param row:
@@ -155,6 +156,106 @@ class PlateFormat(object):
         :rtype:
         """
         return (col * self.ny) + row + 1
+
+    def human2index(self, pos):
+        """
+        >>> cp96 = PlateFormat(96)
+        >>> cp96.human2index('H6')
+        (7, 5)
+
+        :param pos:
+        :type pos:
+        :return:
+        :rtype:
+        """
+        tecan_id = self.human2int(pos)
+        return self.int2gridindex(tecan_id)
+
+    def int2gridindex(self, cell_int):
+        """
+        >>> cp96 = PlateFormat(96)
+        >>> cp96.int2gridindex(1)
+        (0, 0)
+        >>> cp96.int2gridindex(2)
+        (1, 0)
+        >>> cp96.int2gridindex(30)
+        (5, 3)
+        >>> cp96.int2gridindex(48)
+        (7, 5)
+        >>> cp96.int2gridindex(96)
+        (7, 11)
+
+        :param cell_int:
+        :type cell_int:
+        :return:
+        :rtype:
+        """
+        # col = math.floor(cell_int / self.ny)
+        # row = self.ny - (cell_int % self.ny)
+        col = math.ceil(float(cell_int) / self.ny) - 1
+        row_modulus = cell_int % self.ny
+        if row_modulus == 0:
+            row = 7
+        else:
+            row = row_modulus - 1
+        return row, col
+
+    def right_on_row(self, cell_int):
+        """
+        Returns all wells to the right of this one along a row (inclusive).
+
+        >>> p = PlateFormat(24)
+        >>> p.right_on_row(1)
+        [1, 5, 9, 13, 17, 21]
+        >>> p.right_on_row(2)
+        [2, 6, 10, 14, 18, 22]
+        >>> p.right_on_row(3)
+        [3, 7, 11, 15, 19, 23]
+        >>> p.right_on_row(14)
+        [14, 18, 22]
+        >>> p.right_on_row(16)
+        [16, 20, 24]
+
+        :param cell_int:
+        :type cell_int:
+        :return:
+        :rtype:
+        """
+        end_cell = self.gridindex2int(self.int2gridindex(cell_int)[0],
+                                      self.nx)
+
+        # we need to filter out values higher than the highest well number
+        return list(filter(lambda x: x <= self.n,
+                           range(cell_int, end_cell+1, self.ny)))
+
+    def down_on_column(self, cell_int):
+        """
+        Returns all wells moving down a column for the starting well
+        specified (inclusive).
+
+        >>> p = PlateFormat(24)
+        >>> p.down_on_column(1)
+        [1, 2, 3, 4]
+        >>> p.down_on_column(13)
+        [13, 14, 15, 16]
+        >>> p.down_on_column(3)
+        [3, 4]
+        >>> p.down_on_column(10)
+        [10, 11, 12]
+        >>> p.down_on_column(22)
+        [22, 23, 24]
+
+        :param cell_int:
+        :type cell_int:
+        :return:
+        :rtype:
+        """
+
+        end_cell = self.gridindex2int(
+                              self.ny,
+                              self.int2gridindex(cell_int)[1])
+
+        return list(range(cell_int, end_cell, 1))
 
     def __str__(self):
         return '%i well PlateFormat' % self.n

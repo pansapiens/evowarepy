@@ -25,6 +25,13 @@ class Test(unittest.TestCase):
         self.assertEqual(wl._output_str.getvalue(),
                          'test line 1\ntest line 2\n')
 
+    def test_createWorklistAndFileContextManager(self):
+        with open(tempfile.mktemp(), 'w') as f, Worklist(fh=f) as wl:
+            wl.comment("blafoo")
+
+        self.assertEqual(wl._target_fh, None)
+        self.assertEqual(str(wl), 'C; blafoo\n')
+
     def test_worklistNoFileHandle(self):
 
         with Worklist(reportErrors=False) as wl:

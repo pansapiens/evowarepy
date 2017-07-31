@@ -523,8 +523,8 @@ class CherryWorklist(object):
                         dst_format = self.iTargets.plateFormat(dst_plate)
                         src_format = self.iParts.plateFormat(src_plate)
 
-                        dst_pos = dst_format.pos2int(dst_pos)
-                        src_pos = src_format.pos2int(src_pos)
+                        dst_pos = dst_format.human2int(dst_pos)
+                        src_pos = src_format.human2int(src_pos)
 
                         self.wl.transfer(src_plate, src_pos, dst_plate, dst_pos,
                                          V, byLabel=byLabel)
