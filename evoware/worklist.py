@@ -220,10 +220,10 @@ class Worklist(object):
                 'Specify either source labware ID or rack label.')
 
         # tipMask = str(tipMask or '')
-        if liquidClass is None and self.defaultLiquidClass is None:
-            liquidClass = ''
-        else:
+        if liquidClass is None:
             liquidClass = self.defaultLiquidClass
+        if liquidClass is None:
+            liquidClass = ''
 
         fields = [rackLabel, rackID, rackType, position, tubeID, volume,
                   liquidClass, tipMask]
@@ -237,7 +237,7 @@ class Worklist(object):
         self._out.write(r)
 
     def aspirate(self, rackLabel='', rackID='', rackType='', position=1,
-                 tubeID='', volume=0, liquidClass='', tipMask=None):
+                 tubeID='', volume=0, liquidClass=None, tipMask=None):
         """
         Generate a single aspirate command. Required parameters are:
         @param rackLabel or rackID - str, source rack label or barcode ID
@@ -268,7 +268,7 @@ class Worklist(object):
             self.aspirate(rackLabel=rackID, position=position, volume=volume)
 
     def dispense(self, rackLabel='', rackID='', rackType='', position=1,
-                 tubeID='', volume=0, liquidClass='', tipMask=None, wash=True):
+                 tubeID='', volume=0, liquidClass=None, tipMask=None, wash=True):
         """
         Generate a single dispense command. Required parameters are:
         @param rackLabel or rackID - str, source rack label or barcode ID
@@ -291,7 +291,8 @@ class Worklist(object):
         if wash:
             self._out.write('W;\n')
 
-    def D(self, rackID, position, volume, wash=True, byLabel=False):
+    def D(self, rackID, position, volume, liquidClass=None, wash=True,
+          byLabel=False):
         """
         dispense shortcut with only the three core parameters
         @param rackID - str, dest. labware ID (or rack ID if labware lacks ID)
@@ -303,10 +304,10 @@ class Worklist(object):
         """
         if not byLabel:
             self.dispense(rackID=rackID, position=position, volume=volume,
-                          wash=wash)
+                          liquidClass=liquidClass, wash=wash)
         else:
             self.dispense(rackLabel=rackID, position=position, volume=volume,
-                          wash=wash)
+                          liquidClass=liquidClass, wash=wash)
 
     def distribute(self, srcRackLabel='', srcRackID='', srcRackType='',
                    srcPosStart=1, srcPosEnd=96,
@@ -362,7 +363,8 @@ class Worklist(object):
         self._out.write(r)
 
     def transfer(self, srcID, srcPosition, dstID, dstPosition, volume,
-                 srcRackType='', dstRackType='', wash=True, byLabel=False):
+                 srcRackType='', dstRackType='', liquidClass=None,
+                 wash=True, byLabel=False):
         """
         @param srcID - str, source labware ID (or rack label if missing)
         @param srcPosition - int, source well position
@@ -377,16 +379,18 @@ class Worklist(object):
         self.aspirate(rackID=srcID,
                       rackType=srcRackType,
                       position=srcPosition,
-                      volume=volume)
+                      volume=volume,
+                      liquidClass=liquidClass)
         self.dispense(rackID=dstID,
                       rackType=dstRackType,
                       position=dstPosition,
                       volume=volume,
+                      liquidClass=liquidClass,
                       wash=wash)
 
-    def transferColumn(self, srcID, srcCol, dstID, dstCol,
-                       volume,
-                       liquidClass='', tipMask=None, wash=True, byLabel=False):
+    def transferColumn(self, srcID, srcCol, dstID, dstCol, volume,
+                       liquidClass=None, tipMask=None, wash=True,
+                       byLabel=False):
         """
         Generate Aspirate & Dispense commands for a whole plate column
         @param srcID - str, source labware ID (or rack label if missing)
@@ -417,8 +421,8 @@ class Worklist(object):
         return i
 
     def multidiswithflush(self, srcLabel='', srcPos=1, dstLabel='', dstPos=[],
-                          volume=0, tipVolume=900, liquidClass='', tipMask=None,
-                          wash=True, flush=True):
+                          volume=0, tipVolume=900, liquidClass=None,
+                          tipMask=None, wash=True, flush=True):
         """
         
         @param wash - bool, replace tip *after* all multi-dispense actions.

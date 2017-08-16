@@ -83,9 +83,9 @@ class PlateFormat(object):
 
     def human2int(self, pos):
         """
-        Convert input position to Tecan numbering
-        @param pos: str | int | float, e.g. 'A2' or 'a2' or 2 or 2.0
-        @return int, plate position according to Tecan numbering ('A2'=>9)
+        Convert input position to Tecan numbering @param pos: str | int |
+        float, e.g. 'A2' or 'a2' or 2 or 2.0 @return int, plate position
+        according to Tecan numbering ('A2'=>9)
 
         @raise PlateError, if the resulting position is outside well number
         """
@@ -111,9 +111,8 @@ class PlateFormat(object):
     def int2human(self, pos):
         """
         Convert Tecan well position (e.g. running from 1 to 96) into human-
-        readable plate coordinate such as 'A1' or 'H12'.
-        @param pos: int, well position in Tecan numbering
-        @return str, plate coordinate
+        readable plate coordinate such as 'A1' or 'H12'. @param pos: int,
+        well position in Tecan numbering @return str, plate coordinate
         """
         assert type(pos) is int
 
