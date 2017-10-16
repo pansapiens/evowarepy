@@ -262,10 +262,10 @@ class Worklist(object):
         @param volume - int, aspiration volume
         @param byLabel - bool, use rack label instead of labware / rack ID
         """
-        if not byLabel:
-            self.aspirate(rackID=rackID, position=position, volume=volume)
-        else:
+        if byLabel:
             self.aspirate(rackLabel=rackID, position=position, volume=volume)
+        else:
+            self.aspirate(rackID=rackID, position=position, volume=volume)
 
     def dispense(self, rackLabel='', rackID='', rackType='', position=1,
                  tubeID='', volume=0, liquidClass=None, tipMask=None, wash=True):
@@ -376,17 +376,30 @@ class Worklist(object):
         @param byLabel - bool, use rack label instead of labware/rack ID [False]
 
         """
-        self.aspirate(rackID=srcID,
-                      rackType=srcRackType,
-                      position=srcPosition,
-                      volume=volume,
-                      liquidClass=liquidClass)
-        self.dispense(rackID=dstID,
-                      rackType=dstRackType,
-                      position=dstPosition,
-                      volume=volume,
-                      liquidClass=liquidClass,
-                      wash=wash)
+        if byLabel:
+            self.aspirate(rackLabel=srcID,
+                          rackType=srcRackType,
+                          position=srcPosition,
+                          volume=volume,
+                          liquidClass=liquidClass)
+            self.dispense(rackLabel=dstID,
+                          rackType=dstRackType,
+                          position=dstPosition,
+                          volume=volume,
+                          liquidClass=liquidClass,
+                          wash=wash)
+        else:
+            self.aspirate(rackID=srcID,
+                          rackType=srcRackType,
+                          position=srcPosition,
+                          volume=volume,
+                          liquidClass=liquidClass)
+            self.dispense(rackID=dstID,
+                          rackType=dstRackType,
+                          position=dstPosition,
+                          volume=volume,
+                          liquidClass=liquidClass,
+                          wash=wash)
 
     def transferColumn(self, srcID, srcCol, dstID, dstCol, volume,
                        liquidClass=None, tipMask=None, wash=True,
@@ -409,15 +422,26 @@ class Worklist(object):
         pos_dst = (dstCol - 1) * self.rows + 1
 
         for i in range(0, self.rows):
-            self.aspirate(rackID=srcID,
-                          position=pos_src + i,
-                          volume=volume,
-                          liquidClass=liquidClass, tipMask=tipMask)
-            self.dispense(rackID=dstID,
-                          position=pos_dst + i,
-                          volume=volume,
-                          liquidClass=liquidClass, tipMask=tipMask,
-                          wash=wash)
+            if byLabel:
+                self.aspirate(rackLabel=srcID,
+                              position=pos_src + i,
+                              volume=volume,
+                              liquidClass=liquidClass, tipMask=tipMask)
+                self.dispense(rackLabel=dstID,
+                              position=pos_dst + i,
+                              volume=volume,
+                              liquidClass=liquidClass, tipMask=tipMask,
+                              wash=wash)
+            else:
+                self.aspirate(rackID=srcID,
+                              position=pos_src + i,
+                              volume=volume,
+                              liquidClass=liquidClass, tipMask=tipMask)
+                self.dispense(rackID=dstID,
+                              position=pos_dst + i,
+                              volume=volume,
+                              liquidClass=liquidClass, tipMask=tipMask,
+                              wash=wash)
         return i
 
     def multidiswithflush(self, srcLabel='', srcPos=1, dstLabel='', dstPos=[],
